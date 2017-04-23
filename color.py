@@ -20,6 +20,7 @@ def color_hist(img, nbins=32, bins_range=(0, 256)):
 
     # Concatenate the histograms into a single feature vector
     hist_features = np.concatenate((rhist[0], ghist[0], bhist[0]))
+    
     # Return the individual histograms, bin_centers and feature vector
     return rhist, ghist, bhist, bin_centers, hist_features
 
