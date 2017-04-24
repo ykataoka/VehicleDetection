@@ -10,7 +10,7 @@ import pickle as pkl
 from get_hog import get_hog_features
 
 
-def extract_features_from_img(img, cspace='RGB', spatial_size=(32, 32),
+def extract_feature_from_img(img, cspace='RGB', spatial_size=(32, 32),
                               hist_bins=32, hist_range=(0, 256),
                               orient=12, pix_per_cell=8, cell_per_block=2):
     """
