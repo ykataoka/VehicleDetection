@@ -3,12 +3,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 import cv2
-from lesson_functions import get_hog_features
-from lesson_functions import bin_spatial
-from lesson_functions import color_hist
-from lesson_functions import convert_color
-from lesson_functions import single_img_features
-from lesson_functions import *
+from my_cv_tools import get_hog_features
+from my_cv_tools import bin_spatial
+from my_cv_tools import color_hist
+from my_cv_tools import convert_color
+# from my_cv_tools import single_img_features
+# from lesson_functions import *
 
 
 def find_cars(img, ystart, ystop, cspace, scale, svc, X_scaler, orient,
@@ -25,7 +25,7 @@ def find_cars(img, ystart, ystop, cspace, scale, svc, X_scaler, orient,
             4. draw rectangle
     """
     draw_img = np.copy(img)
-#    img = img.astype(np.float32) / 255
+    # img = img.astype(np.float32) / 255  # can be removed
 
     # crop image
     img_tosearch = img[ystart:ystop, :, :]
@@ -110,55 +110,20 @@ def find_cars(img, ystart, ystop, cspace, scale, svc, X_scaler, orient,
             hist_features = color_hist(subimg,
                                        nbins=hist_bins)
 
-#            print(subimg.shape)
-#            plt.imshow(subimg)
-#            plt.show()
-
-            # when scale = 1.5
-#            print(i)
-#            if i == 35:
-#                print(ytop, ytop+window)
-#                print(xleft, xleft+window)
-#                test = img_tosearch[ytop:ytop+window, xleft:xleft+window]
-#                plt.imshow(test)
-#                plt.show()
-#                print(subimg.shape)
-#                plt.imshow(subimg)
-#                plt.show()
-
-            # when scale = 3.0
-#            if i == 21:
-#                print(subimg.shape)
-#                plt.imshow(subimg)
-#                plt.show()
-
             # Scale features and make a prediction
-#            X = np.hstack((spatial_features, hist_features,
-#                           hog_features)).reshape(1, -1)
+            X = np.hstack((spatial_features, hist_features,
+                           hog_features)).reshape(1, -1)
 
+#             # DEBUG : feature from single_img_features
+#             X = single_img_features(img_tosearch[
+#                 ytop:ytop+window, xleft:xleft+window],
+#                                     color_space="YCrCb",
+#                                     hog_channel='ALL'
+#             ).reshape(1, -1)
 
-            
-            # DEBUG : Let's try to get feature from single_img_features
-            X = single_img_features(img_tosearch[
-                ytop:ytop+window, xleft:xleft+window],
-                                color_space="YCrCb",
-                                hog_channel='ALL'
-            ).reshape(1, -1)
-            
             test_features = X_scaler.transform(X)
-            print(test_features)
-            print(np.average(test_features[0]))
-            print(np.std(test_features[0]))
-            print(test_features.shape)
-#            plt.plot([i for i in range(len(test_features[0]))], test_features[0])
-#            plt.show()
-            # test_features = X_scaler.transform(
-            #     np.hstack((shape_feat,
-            #                hist_feat)).reshape(1, -1))
             test_prediction = svc.predict(test_features)
-            test_prob = svc.predict_proba(test_features)
-            print(test_prob)
-#            print(test_prediction)
+
             # Draw Rectangle
             if test_prediction == 1:  # if result is car
                 xbox_left = np.int(xleft*scale)
@@ -185,10 +150,9 @@ if __name__ == '__main__':
     hist_bins = dist_pickle["hist_bins"]
 
     # paramter
-#    ystart = 400
-    ystart = 370
+    ystart = 400
     ystop = 656
-    scale = 1.0
+    scale = 2.0
     cspace = "YCrCb"
     debug_flg = "True"
     hog_channel = 'ALL'
@@ -196,9 +160,7 @@ if __name__ == '__main__':
     # debug_flg
     if debug_flg is 'True':
         img = mpimg.imread('test_images/test4.jpg')
-#        print("org value average ", np.average(img))
-#        input()
-        
+
         print("svc spac :", svc.best_estimator_,
               svc.best_params_, svc.best_score_)
         print("orient :", orient)
@@ -219,7 +181,7 @@ if __name__ == '__main__':
                             cell_per_block,  # cell per block (2)
                             hog_channel,  # target hog channel
                             spatial_size,  # target resize feature
-                            hist_bins)  # target hist 
+                            hist_bins)  # target hist
 
         plt.imshow(out_img)
         plt.show()
