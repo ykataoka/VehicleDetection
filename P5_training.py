@@ -12,21 +12,23 @@ from sklearn.model_selection import GridSearchCV
 from skimage.feature import hog
 
 # custom module
-from spatial_bin import bin_spatial
+# from spatial_bin import bin_spatial
 from spatial_bin import convert_color
-from color import color_hist
-from norm_shuffle import extract_features
-from norm_shuffle import extract_feature_from_img
+# from color import color_hist
+# from norm_shuffle import extract_features
+# from norm_shuffle import extract_feature_from_img
 from get_hog import get_hog_features
+from lesson_functions import extract_features
+
 
 from sklearn.model_selection import train_test_split  # v0.18
 # from sklearn.cross_validation import train_test_split  # v0.17
 
 debug_flg = "True"  # plot the graphs
 
-scaler_file = open('X_scaler.pkl', 'rb')
-X_scaler = pkl.load(scaler_file)
-orient = 12  # the number of the direction
+#scaler_file = open('X_scaler.pkl', 'rb')
+#X_scaler = pkl.load(scaler_file)
+orient = 9  # the number of the direction
 pix_per_cell = 8  # the number of pixel to form cell
 cell_per_block = 2  # the number of cell to form block
 
@@ -63,66 +65,80 @@ def pipeline(img):
     print(X.shape)
 
 
-def training(cars, notcars, spatial=32, histbin=32):
+def training(cars, notcars, cspace='YCrCb',
+             spatial=32, histbin=32, orientation=9,
+             pix_per_cell=8, cell_per_block=2, hog_channel=0,
+             spatial_feat=True, hist_feat=True, hog_feat=True):
 
     # feature extraction
+    print('training : feature extraction...')
     car_features = extract_features(cars,
-                                    cspace='RGB',
+                                    color_space=cspace,
                                     spatial_size=(spatial, spatial),
                                     hist_bins=histbin,
-                                    hist_range=(0, 256))
+                                    orient=orientation,
+                                    pix_per_cell=8,
+                                    cell_per_block=2,
+                                    hog_channel='ALL',
+                                    spatial_feat=True,
+                                    hist_feat=True,
+                                    hog_feat=True)
 
     notcar_features = extract_features(notcars,
-                                       cspace='RGB',
+                                       color_space=cspace,
                                        spatial_size=(spatial, spatial),
                                        hist_bins=histbin,
-                                       hist_range=(0, 256))
+                                       orient=orientation,
+                                       pix_per_cell=8,
+                                       cell_per_block=2,
+                                       hog_channel='ALL',
+                                       spatial_feat=True,
+                                       hist_feat=True,
+                                       hog_feat=True)
 
-    # Create an array stack of feature vectors
     X = np.vstack((car_features,
                    notcar_features)).astype(np.float64)
 
-    # Fit a per-column scaler ()
+    # normalization
+    print('training : normalization...')
     X_scaler = StandardScaler().fit(X)
-
-    # save to the output
-    output = open('X_scaler_train.pkl', 'wb')
-    pkl.dump(X_scaler, output)
-
-    # Apply the scaler to X
     scaled_X = X_scaler.transform(X)
+    print('feature size : ', scaled_X.shape)
 
-    # Define the labels vector
+    print(np.average(scaled_X[0]))
+    print(np.std(scaled_X[0]))
+    print(scaled_X.shape)
+    plt.plot([i for i in range(len(scaled_X[0]))], scaled_X[0])
+    plt.show()
+
+    
+    # labels
+    print('training : labels...')
     y = np.hstack((np.ones(len(car_features)),
                    np.zeros(len(notcar_features))))
 
     # Split up data into randomized training and test sets
+    print('training : split for cross validation')
     rand_state = np.random.randint(0, 100)
     X_train, X_test, y_train, y_test = train_test_split(
         scaled_X, y, test_size=0.2, random_state=rand_state)
 
-    print('Using spatial binning of:', spatial,
-          'and', histbin, 'histogram bins')
-    print('Feature vector length:', len(X_train[0]))
-
-    # Grid Search on SVM
+    # grid search
     parameters = {'kernel': ('linear', 'rbf'),
                   'C': [0.1, 1, 10, 100]}
-#                  'C': [1]}
-    svr = svm.SVC()
+    svr = svm.SVC(probability=True)
     clf = GridSearchCV(svr, parameters)
-#    svc = LinearSVC()
 
-    # Check the training time for the SVC
+    # training w/ time
+    print('training : fitting using grid search')
     t = time.time()
     clf.fit(X_train, y_train)
     t2 = time.time()
     print(round(t2-t, 2), 'Seconds to train SVC...')
-#    print(clf.cv_results_)
-    print(clf.best_estimator_)
-    print(clf.best_params_)
-    print(clf.best_score_)
-    
+    print('best estimagor', clf.best_estimator_)
+    print('best params', clf.best_params_)
+    print('best scores', clf.best_score_)
+
     # Check the score of the SVC
     print('Test Accuracy of SVC = ',
           round(clf.score(X_test, y_test), 4))
@@ -146,8 +162,8 @@ def training(cars, notcars, spatial=32, histbin=32):
                   "pix_per_cell": pix_per_cell,
                   "cell_per_block": cell_per_block,
                   "spatial_size": (spatial, spatial),
-                  "hist_bins": hist_bins}
-    
+                  "hist_bins": histbin}
+
     outfile = open('svc_pickle.pkl', 'wb')
     pkl.dump(out_pickle, outfile)
 
@@ -156,54 +172,63 @@ if __name__ == '__main__':
     """
     read images
     """
-    images = glob.glob('../data/test_sample/*.jpeg')
-    cars, notcars = [], []
-    for image in images:
-        if 'image' in image or 'extra' in image:
-            notcars.append(image)
-        else:
-            cars.append(image)
+#    images = glob.glob('../data/test_sample2/*')
+#    cars, notcars = [], []
+#    for image in images:
+#        if 'image' in image or 'extra' in image:
+#            notcars.append(image)
+#        else:
+#            cars.append(image)
+    cars  = glob.glob('../data/test_sample2/vehicle/*')
+    notcars  = glob.glob('../data/test_sample2/nonvehicle/*')
 
     """
     Test Training
     """
     if debug_flg == "True":
-        training(cars, notcars)
+        training(cars, notcars, cspace='YCrCb', spatial=32, histbin=32,
+                 orientation=orient, pix_per_cell=pix_per_cell,
+                 cell_per_block=cell_per_block, hog_channel=0,
+                 spatial_feat=True, hist_feat=True, hog_feat=True)
         input('training done!')
 
-    """
-    Test Feature Extraction for prediction
-    """
-    if debug_flg == "True":
-        # read random index
-        car_idx = np.random.randint(0, len(cars))
-        car_img = mpimg.imread(cars[car_idx])  # RGB
-        pipeline(car_img)
+#        cars, notcars, spatial=32, histbin=32, orientation=9,
+#        pix_per_cell=8, cell_per_block=2, hog_channel=0,
+#        spatial_feat=True, hist_feat=True, hog_feat=True
 
-    """
-    Test print car and notcar image
-    """
-    if debug_flg == "True":
+#    """
+#    Test Feature Extraction for prediction
+#    """
+#    if debug_flg == "True":
+#        # read random index
+#        car_idx = np.random.randint(0, len(cars))
+#        car_img = mpimg.imread(cars[car_idx])  # RGB
+#        pipeline(car_img)
 
-        # read random index
-        car_idx = np.random.randint(0, len(cars))
-        noncar_idx = np.random.randint(0, len(notcars))
-
-        # read images
-        car_img = mpimg.imread(cars[car_idx])  # RGB
-        noncar_img = mpimg.imread(notcars[noncar_idx])  # RGB
-
-        # plot figures
-        fig = plt.figure(figsize=(8, 4))  # needs to be RGB
-        plt.subplot(121)
-        plt.imshow(car_img)
-        plt.title('Example Car Image')
-        plt.subplot(122)
-        plt.imshow(noncar_img)
-        plt.title('Example Non Car Image')
-        fig.tight_layout()
-        plt.savefig('examples/car_not_car.png', dpi=300)
-        # plt.show()
+#    """
+#    Test print car and notcar image
+#    """
+#    if debug_flg == "True":
+#
+#        # read random index
+#        car_idx = np.random.randint(0, len(cars))
+#        noncar_idx = np.random.randint(0, len(notcars))
+#
+#        # read images
+#        car_img = mpimg.imread(cars[car_idx])  # RGB
+#        noncar_img = mpimg.imread(notcars[noncar_idx])  # RGB
+#
+#        # plot figures
+#        fig = plt.figure(figsize=(8, 4))  # needs to be RGB
+#        plt.subplot(121)
+#        plt.imshow(car_img)
+#        plt.title('Example Car Image')
+#        plt.subplot(122)
+#        plt.imshow(noncar_img)
+#        plt.title('Example Non Car Image')
+#        fig.tight_layout()
+#        plt.savefig('examples/car_not_car.png', dpi=300)
+#        # plt.show()
 
     """
     Test print HOG Feature
@@ -259,13 +284,13 @@ if __name__ == '__main__':
                                                        cell_per_block,
                                                        vis=True,
                                                        feature_vec=False)
-
+        
         # HSV - H
         f_hsv_h, hog_hsv_h = get_hog_features(hsv_car_img[:, :, 0],
                                               orient, pix_per_cell,
                                               cell_per_block, vis=True,
                                               feature_vec=False)
-
+        
         # HSV - S
         f_hsv_l, hog_hsv_s = get_hog_features(hsv_car_img[:, :, 1],
                                               orient, pix_per_cell,
@@ -481,8 +506,7 @@ if __name__ == '__main__':
         plt.title('Raw Features')
         fig.tight_layout()
         plt.show()
-        
-    
+
     car_features = extract_features(cars, cspace='RGB', spatial_size=(32, 32),
                                     hist_bins=32, hist_range=(0, 256))
 
@@ -497,7 +521,7 @@ if __name__ == '__main__':
 
         # Fit a per-column scaler
         X_scaler = StandardScaler().fit(X)
-        
+
         # Apply the scaler to X
         scaled_X = X_scaler.transform(X)
         car_ind = np.random.randint(0, len(cars))
