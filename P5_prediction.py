@@ -8,9 +8,33 @@ from my_cv_tools import bin_spatial
 from my_cv_tools import color_hist
 from my_cv_tools import convert_color
 from scipy.ndimage.measurements import label
+from moviepy.editor import VideoFileClip
 
 # from my_cv_tools import single_img_features
 # from lesson_functions import *
+
+# training parameter
+dist_pickle = pickle.load(open("svc_pickle.pkl", "rb"))
+svc = dist_pickle["svc"]
+X_scaler = dist_pickle["scaler"]
+orient = dist_pickle["orient"]
+pix_per_cell = dist_pickle["pix_per_cell"]
+cell_per_block = dist_pickle["cell_per_block"]
+spatial_size = dist_pickle["spatial_size"]
+hist_bins = dist_pickle["hist_bins"]
+print("svc spac :", svc.best_estimator_,
+      svc.best_params_, svc.best_score_)
+print("orient :", orient)
+print("pix_per_cell :", pix_per_cell)
+print("cell_per_block :", cell_per_block)
+print("spatial_size :", spatial_size)
+print("hist_bins : ", hist_bins)
+
+
+class CarBox():
+    """
+    @desc store the bbox in time-series
+    """
 
 
 def add_heat(heatmap, bbox_list):
@@ -217,40 +241,31 @@ def finalize_cars(img, box_list, thresh):
 
     return draw_img
 
-if __name__ == '__main__':
-    # training parameter
-    dist_pickle = pickle.load(open("svc_pickle.pkl", "rb"))
-    svc = dist_pickle["svc"]
-    X_scaler = dist_pickle["scaler"]
-    orient = dist_pickle["orient"]
-    pix_per_cell = dist_pickle["pix_per_cell"]
-    cell_per_block = dist_pickle["cell_per_block"]
-    spatial_size = dist_pickle["spatial_size"]
-    hist_bins = dist_pickle["hist_bins"]
-    print("svc spac :", svc.best_estimator_,
-          svc.best_params_, svc.best_score_)
-    print("orient :", orient)
-    print("pix_per_cell :", pix_per_cell)
-    print("cell_per_block :", cell_per_block)
-    print("spatial_size :", spatial_size)
-    print("hist_bins : ", hist_bins)
+
+def pipeline(img):
+    """
+    @desc : return rectangular
+    @return : final conclusion of car location
+    @param img : the most recent img
+    """
+    global svc
+    global X_scaler
+    global orient
+    global pix_per_cell
+    global cell_per_block
+    global spatial_size
+    global hist_bins
 
     # fixed parameter
-    ystart = 400
-    ystop = 670
-    scale = 1.0
     cspace = "YCrCb"
     hog_channel = 0
 
-    # fixed parameter
+    # search paramter
     ystarts = [400, 400, 400, 400]
     ystops = [500, 560, 620, 670]
     scales = [1.0, 1.5, 2.0, 2.5]
 
-    # read data
-    img = mpimg.imread('test_images/test5.jpg')
-
-    # pipeline
+    # add the detected box
     box_lists = []
     for ystart, ystop, scale in zip(ystarts, ystops, scales):
         box_list = find_cars(img,  # image file
@@ -270,6 +285,28 @@ if __name__ == '__main__':
 
     # overlay multiple boxes
     thresh = 2
-    out_images = finalize_cars(img, box_lists, thresh)
-    plt.imshow(out_images)
-    plt.show()
+    out_image = finalize_cars(img, box_lists, thresh)
+
+    return out_image
+
+
+if __name__ == '__main__':
+    # mode
+    exp_mode = 'video'
+
+    # image mode
+    if exp_mode == 'image':
+        # read data
+        img = mpimg.imread('test_images/test5.jpg')
+        out_images = pipeline(img)
+        plt.imshow(out_images)
+        plt.show()
+
+    # video mode
+    if exp_mode == 'video':
+        clip1 = VideoFileClip("test_video.mp4")
+        white_clip = clip1.fl_image(pipeline)
+
+        # output
+        white_output = 'test_video_out.mp4'
+        white_clip.write_videofile(white_output, audio=False)
