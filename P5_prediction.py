@@ -7,30 +7,74 @@ from my_cv_tools import get_hog_features
 from my_cv_tools import bin_spatial
 from my_cv_tools import color_hist
 from my_cv_tools import convert_color
+from scipy.ndimage.measurements import label
+
 # from my_cv_tools import single_img_features
 # from lesson_functions import *
+
+
+def add_heat(heatmap, bbox_list):
+    # Iterate through list of bboxes
+    for box in bbox_list:
+        # Add += 1 for all pixels inside each bbox
+        # Assuming each "box" takes the form ((x1, y1), (x2, y2))
+        heatmap[box[0][1]:box[1][1], box[0][0]:box[1][0]] += 1
+
+    # Return updated heatmap
+    return heatmap  # Iterate through list of bboxes
+
+
+def apply_threshold(heatmap, threshold):
+    # Zero out pixels below the threshold
+    heatmap[heatmap <= threshold] = 0
+
+    # Return thresholded map
+    return heatmap
+
+
+def draw_labeled_bboxes(img, labels):
+    # Iterate through all detected cars
+    for car_number in range(1, labels[1]+1):
+
+        # Find pixels with each car_number label value
+        nonzero = (labels[0] == car_number).nonzero()
+
+        # Identify x and y values of those pixels
+        nonzeroy = np.array(nonzero[0])
+        nonzerox = np.array(nonzero[1])
+
+        # Define a bounding box based on min/max x and y
+        bbox = ((np.min(nonzerox), np.min(nonzeroy)),
+                (np.max(nonzerox), np.max(nonzeroy)))
+
+        # Draw the box on the image
+        cv2.rectangle(img, bbox[0], bbox[1], (0, 0, 255), 6)
+
+    # Return the image
+    return img
 
 
 def find_cars(img, ystart, ystop, cspace, scale, svc, X_scaler, orient,
               pix_per_cell, cell_per_block, hog_channel,
               spatial_size, hist_bins):
     """
+    @desc : 1. extract features using hog sub-sampling
+            2. feature extraction
+            3. prediction based on the trained model
+            4. return detected box list
+    @return : box list
     @param ystart : upper bound of search area
     @param ystop : lower bound of search area
     @param scale : if big, try to find close car,
                    if small, try to find far car
-    @desc : 1. extract features using hog sub-sampling
-            2. feature extraction
-            3. prediction based on the trained model
-            4. draw rectangle
     """
+    box_list = []
     draw_img = np.copy(img)
     # img = img.astype(np.float32) / 255  # can be removed
 
     # crop image
     img_tosearch = img[ystart:ystop, :, :]
     color_param = "RGB2" + cspace
-    print(color_param)
     ctrans_tosearch = convert_color(img_tosearch,
                                     conv=color_param)
 
@@ -129,14 +173,49 @@ def find_cars(img, ystart, ystop, cspace, scale, svc, X_scaler, orient,
                 xbox_left = np.int(xleft*scale)
                 ytop_draw = np.int(ytop*scale)
                 win_draw = np.int(window*scale)
-                cv2.rectangle(draw_img,
-                              (xbox_left, ytop_draw+ystart),
-                              (xbox_left+win_draw,
-                               ytop_draw+win_draw+ystart),
-                              (0, 0, 255), 6)
+                box_list.append(((xbox_left,
+                                 ytop_draw+ystart),
+                                (xbox_left+win_draw,
+                                 ytop_draw+win_draw+ystart)))
+
+#                cv2.rectangle(draw_img,
+#                              (xbox_left, ytop_draw+ystart),
+#                              (xbox_left+win_draw,
+#                               ytop_draw+win_draw+ystart),
+#                              (0, 0, 255), 6)
+#    plt.imshow(draw_img)
+#    plt.show()
+    
+    return box_list
+
+
+def finalize_cars(img, box_list, thresh):
+    """
+    @desc : 1. heatmap by overlaying the detected box
+            2. apply threshold to remove noise
+            3. prediction based on the trained model
+            4. extrat labeled area
+    @return : labeled image
+    @param boxlist : detected car (box) boundary infor
+    """
+
+    # add heat map
+    heat = np.zeros_like(img[:, :, 0]).astype(np.float)
+
+    # Add heat to each box in box list
+    heat = add_heat(heat, box_list)
+
+    # Apply threshold to help remove false positives
+    heat = apply_threshold(heat, thresh)
+
+    # Visualize the heatmap when displaying
+    heatmap = np.clip(heat, 0, 255)
+
+    # Find final boxes from heatmap using label function
+    labels = label(heatmap)
+    draw_img = draw_labeled_bboxes(np.copy(img), labels)
 
     return draw_img
-
 
 if __name__ == '__main__':
     # training parameter
@@ -148,40 +227,49 @@ if __name__ == '__main__':
     cell_per_block = dist_pickle["cell_per_block"]
     spatial_size = dist_pickle["spatial_size"]
     hist_bins = dist_pickle["hist_bins"]
+    print("svc spac :", svc.best_estimator_,
+          svc.best_params_, svc.best_score_)
+    print("orient :", orient)
+    print("pix_per_cell :", pix_per_cell)
+    print("cell_per_block :", cell_per_block)
+    print("spatial_size :", spatial_size)
+    print("hist_bins : ", hist_bins)
 
-    # paramter
+    # fixed parameter
     ystart = 400
-    ystop = 656
-    scale = 2.0
+    ystop = 670
+    scale = 1.0
     cspace = "YCrCb"
-    debug_flg = "True"
-    hog_channel = 'ALL'
+    hog_channel = 0
 
-    # debug_flg
-    if debug_flg is 'True':
-        img = mpimg.imread('test_images/test4.jpg')
+    # fixed parameter
+    ystarts = [400, 400, 400, 400]
+    ystops = [500, 560, 620, 670]
+    scales = [1.0, 1.5, 2.0, 2.5]
 
-        print("svc spac :", svc.best_estimator_,
-              svc.best_params_, svc.best_score_)
-        print("orient :", orient)
-        print("pix_per_cell :", pix_per_cell)
-        print("cell_per_block :", cell_per_block)
-        print("spatial_size :", spatial_size)
-        print("hist_bins : ", hist_bins)
+    # read data
+    img = mpimg.imread('test_images/test5.jpg')
 
-        out_img = find_cars(img,  # image file
-                            ystart,  # target y area start
-                            ystop,  # target y area end
-                            cspace,   # color space such as 'YCrCb'
-                            scale,  # scale demined by distance to car
-                            svc,  # classifier
-                            X_scaler,  # scaler for normalization
-                            orient,  # number of direction feature
-                            pix_per_cell,  # pixel per cell (8)
-                            cell_per_block,  # cell per block (2)
-                            hog_channel,  # target hog channel
-                            spatial_size,  # target resize feature
-                            hist_bins)  # target hist
+    # pipeline
+    box_lists = []
+    for ystart, ystop, scale in zip(ystarts, ystops, scales):
+        box_list = find_cars(img,  # image file
+                             ystart,  # target y area start
+                             ystop,  # target y area end
+                             cspace,   # color space such as 'YCrCb'
+                             scale,  # scale demined by distance to car
+                             svc,  # classifier
+                             X_scaler,  # scaler for normalization
+                             orient,  # number of direction feature
+                             pix_per_cell,  # pixel per cell (8)
+                             cell_per_block,  # cell per block (2)
+                             hog_channel,  # target hog channel
+                             spatial_size,  # target resize feature
+                             hist_bins)  # target hist
+        box_lists += box_list
 
-        plt.imshow(out_img)
-        plt.show()
+    # overlay multiple boxes
+    thresh = 2
+    out_images = finalize_cars(img, box_lists, thresh)
+    plt.imshow(out_images)
+    plt.show()
