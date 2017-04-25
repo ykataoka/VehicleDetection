@@ -35,6 +35,18 @@ class CarBox():
     """
     @desc store the bbox in time-series
     """
+    def __init__(self, num):
+        # past N data of detected boxes
+        self.box_sequence = []
+
+        # the number of data to keep in the past
+        self.N = num
+
+    def update_recent_box(self, boxes):
+        if len(self.box_sequence) > self.N:
+            self.box_sequence.pop(0)
+
+        self.box_sequence.append(boxes)
 
 
 def add_heat(heatmap, bbox_list):
@@ -291,7 +303,7 @@ def pipeline(img):
 
 
 if __name__ == '__main__':
-    # mode
+    # set mode
     exp_mode = 'video'
 
     # image mode
@@ -304,9 +316,9 @@ if __name__ == '__main__':
 
     # video mode
     if exp_mode == 'video':
-        clip1 = VideoFileClip("test_video.mp4")
+        clip1 = VideoFileClip("project_video.mp4")
         white_clip = clip1.fl_image(pipeline)
 
         # output
-        white_output = 'test_video_out.mp4'
+        white_output = 'project_video_out.mp4'
         white_clip.write_videofile(white_output, audio=False)
