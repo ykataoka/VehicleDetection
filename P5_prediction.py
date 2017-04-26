@@ -14,7 +14,7 @@ from moviepy.editor import VideoFileClip
 # from lesson_functions import *
 
 # training parameter
-dist_pickle = pickle.load(open("svc_pickle.pkl", "rb"))
+dist_pickle = pickle.load(open("svc_pickle_ycrcb.pkl", "rb"))
 svc = dist_pickle["svc"]
 X_scaler = dist_pickle["scaler"]
 orient = dist_pickle["orient"]
@@ -47,6 +47,12 @@ class CarBox():
             self.box_sequence.pop(0)
 
         self.box_sequence.append(boxes)
+
+    def get_all_box(self):
+        out = []
+        for sub_box in self.box_sequence:
+            out += sub_box
+        return out
 
 
 def add_heat(heatmap, bbox_list):
@@ -90,7 +96,8 @@ def draw_labeled_bboxes(img, labels):
     return img
 
 
-def find_cars(img, ystart, ystop, cspace, scale, svc, X_scaler, orient,
+def find_cars(img, ystart, ystop, xstart, xstop, cspace, scale,
+              svc, X_scaler, orient,
               pix_per_cell, cell_per_block, hog_channel,
               spatial_size, hist_bins):
     """
@@ -109,7 +116,7 @@ def find_cars(img, ystart, ystop, cspace, scale, svc, X_scaler, orient,
     # img = img.astype(np.float32) / 255  # can be removed
 
     # crop image
-    img_tosearch = img[ystart:ystop, :, :]
+    img_tosearch = img[ystart:ystop, xstart:xstop, :]
     color_param = "RGB2" + cspace
     ctrans_tosearch = convert_color(img_tosearch,
                                     conv=color_param)
@@ -209,19 +216,23 @@ def find_cars(img, ystart, ystop, cspace, scale, svc, X_scaler, orient,
                 xbox_left = np.int(xleft*scale)
                 ytop_draw = np.int(ytop*scale)
                 win_draw = np.int(window*scale)
-                box_list.append(((xbox_left,
+                box_list.append(((xstart + xbox_left,
                                  ytop_draw+ystart),
-                                (xbox_left+win_draw,
+                                (xstart + xbox_left+win_draw,
                                  ytop_draw+win_draw+ystart)))
 
+                # DEBUG : print images...
 #                cv2.rectangle(draw_img,
-#                              (xbox_left, ytop_draw+ystart),
-#                              (xbox_left+win_draw,
+#                              (xstart + xbox_left,
+#                               ytop_draw+ystart),
+#                              (xstart + xbox_left+win_draw,
 #                               ytop_draw+win_draw+ystart),
 #                              (0, 0, 255), 6)
+#
+#    cv2.imwrite('./examples/result.png', draw_img[..., ::-1])
 #    plt.imshow(draw_img)
 #    plt.show()
-    
+
     return box_list
 
 
@@ -251,6 +262,11 @@ def finalize_cars(img, box_list, thresh):
     labels = label(heatmap)
     draw_img = draw_labeled_bboxes(np.copy(img), labels)
 
+    # DEBUG : print images...
+    cv2.imwrite('./examples/final.png', draw_img[..., ::-1])
+    plt.imshow(draw_img)
+    plt.show()
+
     return draw_img
 
 
@@ -270,19 +286,24 @@ def pipeline(img):
 
     # fixed parameter
     cspace = "YCrCb"
-    hog_channel = 0
+    hog_channel = "ALL"
 
     # search paramter
-    ystarts = [400, 400, 400, 400]
-    ystops = [500, 560, 620, 670]
+    ystarts = [350, 360, 370, 390]
+    ystops = [520, 580, 640, 700]
+    xstarts = [600, 600, 600, 600]
+    xstops = [1280, 1280, 1280, 1280]
     scales = [1.0, 1.5, 2.0, 2.5]
 
     # add the detected box
     box_lists = []
-    for ystart, ystop, scale in zip(ystarts, ystops, scales):
+    for ystart, ystop, xstart, xstop, scale in zip(ystarts, ystops,
+                                                   xstarts, xstops, scales):
         box_list = find_cars(img,  # image file
                              ystart,  # target y area start
                              ystop,  # target y area end
+                             xstart,  # target x area start
+                             xstop,  # target x area end
                              cspace,   # color space such as 'YCrCb'
                              scale,  # scale demined by distance to car
                              svc,  # classifier
@@ -295,12 +316,18 @@ def pipeline(img):
                              hist_bins)  # target hist
         box_lists += box_list
 
+    # update box class and filter
+    BoxInstance.update_recent_box(box_lists)
+    box_lists_past = BoxInstance.get_all_box()
+
     # overlay multiple boxes
-    thresh = 2
-    out_image = finalize_cars(img, box_lists, thresh)
+    thresh = 10
+    out_image = finalize_cars(img, box_lists_past, thresh)
 
     return out_image
 
+
+BoxInstance = CarBox(6)
 
 if __name__ == '__main__':
     # set mode
@@ -309,16 +336,22 @@ if __name__ == '__main__':
     # image mode
     if exp_mode == 'image':
         # read data
-        img = mpimg.imread('test_images/test5.jpg')
+        img = mpimg.imread('test_images/test4.jpg')
         out_images = pipeline(img)
         plt.imshow(out_images)
         plt.show()
 
     # video mode
     if exp_mode == 'video':
+        # clip1 = VideoFileClip("test_video.mp4")
+        # clip1 = VideoFileClip("test_video2.mp4")
+        # clip1 = VideoFileClip("test_video3.mp4")
         clip1 = VideoFileClip("project_video.mp4")
         white_clip = clip1.fl_image(pipeline)
 
         # output
+        # white_output = 'test_video_out.mp4'
+        # white_output = 'test_video2_out.mp4'
+        # white_output = 'test_video3_out.mp4'
         white_output = 'project_video_out.mp4'
         white_clip.write_videofile(white_output, audio=False)

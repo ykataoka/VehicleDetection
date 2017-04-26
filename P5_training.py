@@ -24,7 +24,7 @@ cell_per_block = 2  # the number of cell to form block
 
 def training(cars, notcars, cspace='YCrCb',
              spatial=32, histbin=32, orientation=9,
-             pix_per_cell=8, cell_per_block=2, hog_channel=0,
+             pix_per_cell=8, cell_per_block=2, hog_channel='ALL',
              spatial_feat=True, hist_feat=True, hog_feat=True):
 
     # feature extraction
@@ -76,7 +76,7 @@ def training(cars, notcars, cspace='YCrCb',
     parameters = {'kernel': ('linear', 'rbf'),
                   'C': [0.1, 1, 10, 100]}
     svr = svm.SVC(probability=True)
-    clf = GridSearchCV(svr, parameters)
+    clf = GridSearchCV(svr, parameters, n_jobs=-1)
 
     # Training
     print('training (+ grid search)')
@@ -90,7 +90,7 @@ def training(cars, notcars, cspace='YCrCb',
 
     # Evaluation
     print('Test Accuracy of SVC = ', round(clf.score(X_test, y_test), 4))
-
+sh
     # Prediction test
     t = time.time()
     n_predict = 10
@@ -137,9 +137,9 @@ if __name__ == '__main__':
     train
     """
     print('training start...')
-    training(cars, notcars, cspace='YCrCb', spatial=32, histbin=32,
+    training(cars, notcars, cspace='HSV', spatial=32, histbin=32,
              orientation=orient, pix_per_cell=pix_per_cell,
-             cell_per_block=cell_per_block, hog_channel=0,
+             cell_per_block=cell_per_block, hog_channel='ALL',
              spatial_feat=True, hist_feat=True, hog_feat=True)
     print('training done!')
 

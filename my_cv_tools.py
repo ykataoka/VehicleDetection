@@ -305,7 +305,7 @@ def search_windows(img, windows, clf, scaler, color_space='RGB',
         prediction = clf.predict(test_features)
 
         # If positive (prediction == 1) then save the window
-        if prediction == 1:
+        if prediction == 0:
             on_windows.append(window)
 
     # Return windows for positive detections
@@ -313,13 +313,22 @@ def search_windows(img, windows, clf, scaler, color_space='RGB',
 
 
 def convert_color(img, conv='RGB2YCrCb'):
-    if conv == 'RGB2YCrCb':
-        return cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
-    if conv == 'BGR2YCrCb':
-        return cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+    if conv == 'RGB2HSV':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+    if conv == 'RGB2HLS':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
     if conv == 'RGB2LUV':
         return cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
+    if conv == 'RGB2YUV':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+    if conv == 'RGB2YCrCb':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
 
+#                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+#            elif color_space == 'YUV':
+#                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
+#            elif color_space == 'YCrCb':
+#                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
 
 # def convert_color(img, color_space='RGB', size=(32, 32)):
 #     """
