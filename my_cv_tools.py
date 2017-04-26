@@ -90,7 +90,12 @@ def extract_features(imgs, color_space='RGB', spatial_size=(32, 32),
         file_features = []
 
         # Read in each one by one
-        image = mpimg.imread(file)
+        # png needs to be read by cv2, BGR -> RGB
+        # jpg can be read by mpimg, RGB
+        if file.find('png') != -1:
+            image = cv2.imread(file)[..., ::-1]
+        else:
+            image = mpimg.imread(file)
 
         # apply color conversion if other than 'RGB'
         if color_space != 'RGB':

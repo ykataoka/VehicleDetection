@@ -17,7 +17,7 @@ from sklearn.model_selection import train_test_split  # v0.18
 # from sklearn.cross_validation import train_test_split  # v0.17
 
 debug_flg = False  # plot the graphs
-orient = 9  # the number of the direction
+orient = 12  # the number of the direction
 pix_per_cell = 8  # the number of pixel to form cell
 cell_per_block = 2  # the number of cell to form block
 
@@ -90,7 +90,7 @@ def training(cars, notcars, cspace='YCrCb',
 
     # Evaluation
     print('Test Accuracy of SVC = ', round(clf.score(X_test, y_test), 4))
-sh
+
     # Prediction test
     t = time.time()
     n_predict = 10
@@ -120,11 +120,15 @@ if __name__ == '__main__':
     """
     read dataset
     """
-    # a. mid dataset (total 2321 images)
-    cars = glob.glob('../data/test_sample2/vehicle/*')
-    notcars = glob.glob('../data/test_sample2/nonvehicle/*')
+    # a. large dataset
+    cars = glob.glob('../data/vehicles/*/*.png')
+    notcars = glob.glob('../data/non-vehicles/*/*.png')
+    
+    # b. mid dataset (total 2321 images)
+#    cars = glob.glob('../data/test_sample2/vehicle/*')
+#    notcars = glob.glob('../data/test_sample2/nonvehicle/*')
 
-    # b. small dataset (total 800)
+    # c. small dataset (total 800)
     # images = glob.glob('../data/test_sample2/*')
     # cars, notcars = [], []
     # for image in images:
@@ -137,7 +141,7 @@ if __name__ == '__main__':
     train
     """
     print('training start...')
-    training(cars, notcars, cspace='HSV', spatial=32, histbin=32,
+    training(cars, notcars, cspace='YCrCb', spatial=32, histbin=32,
              orientation=orient, pix_per_cell=pix_per_cell,
              cell_per_block=cell_per_block, hog_channel='ALL',
              spatial_feat=True, hist_feat=True, hog_feat=True)
